@@ -47,7 +47,76 @@ if ! id -u 9001 > /dev/null 2>&1; then
     chown minima:minima $HOME
 fi
 
-wget -q -O $HOME"/minima_service.sh" "https://github.com/minima-global/Minima/raw/master/scripts/minima_service.sh"
+DOWNLOAD_URL="https://github.com/minima-global/Minima/raw/master/jar/minima.jar"
+MINIMA_JAR_NAME="minima.jar"
+
+echo "[+] Downloading minima from: $DOWNLOAD_URL"
+wget -q -O $HOME"/"$MINIMA_JAR_NAME $DOWNLOAD_URL
+chown minima:minima $HOME"/"$MINIMA_JAR_NAME
+chmod +x $HOME"/"$MINIMA_JAR_NAME
+
+if [ ! -d "$HOME/.minima_$PORT" ]; then
+  echo "[+] Creating data directory .minima_${PORT}..."
+  mkdir $HOME/.minima_$PORT
+  chown minima:minima $HOME/.minima_$PORT
+fi
+
+
+is_service_exists() {
+    local x=$1
+    if systemctl status "${x}" 2> /dev/null | grep -Fq "Active:"; then
+            return 0
+    else
+            return 1
+    fi
+}
+
+if is_service_exists "minima_$PORT"; then
+  echo "[!] Disabling minima service"
+  systemctl stop minima_$PORT
+  systemctl disable minima_$PORT
+fi
+
+
+echo "[+] Creating service minima_$PORT"
+
+MINIMA_PARAMS="-daemon -port $PORT -data $HOME/.minima_$PORT"
+if [ $CLEAN_FLAG ]; then
+  MINIMA_PARAMS="$MINIMA_PARAMS -clean"
+fi
+
+
+if [ $CONNECTION_PORT ]; then
+  MINIMA_PARAMS="$MINIMA_PARAMS -p2pnode $CONNECTION_HOST:$CONNECTION_PORT"
+fi
+
+if [ $HOST ]; then
+  MINIMA_PARAMS="$MINIMA_PARAMS -host $HOST"
+fi
+
+if [ $RPC ]; then
+  MINIMA_PARAMS="$MINIMA_PARAMS -rpcenable -rpc $RPC"
+fi
+
+tee <<EOF >/dev/null /etc/systemd/system/minima_$PORT.service
+[Unit]
+Description=minima_$PORT
+[Service]
+User=minima
+Type=simple
+ExecStart=/usr/bin/java -Xmx1G -jar $HOME/$MINIMA_JAR_NAME $MINIMA_PARAMS
+Restart=always
+RestartSec=100
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+
+systemctl daemon-reload
+systemctl enable minima_$PORT
+systemctl start minima_$PORT
+
 chown minima:minima $HOME"/minima_service.sh"
 chmod +x $HOME"/minima_service.sh"
 
