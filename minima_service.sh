@@ -48,6 +48,7 @@ fi
 
 sleep 1 && curl -s https://raw.githubusercontent.com/cryptology-nodes/main/main/logo.sh |  bash && sleep 2
 
+mkdir minima
 wget -q -O $HOME"/minima_service.sh" "https://github.com/minima-global/Minima/raw/master/scripts/minima_service.sh"
 chown minima:minima $HOME"/minima_service.sh"
 chmod +x $HOME"/minima_service.sh"
